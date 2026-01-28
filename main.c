@@ -1,11 +1,9 @@
 #include <stdio.h>
 #include <sys/socket.h>
+#include <time.h>
+#include "hashmap.h"
+#include "utils.h"
 
-#define SUCCESS 0
-#define FAILURE 1
-#define UDP_PORT 53
-#define GOOGLE_DNS "8.8.8.8"
-#define BUFF_LENGTH 1024
 
 /* 
 How DNS requests will go
@@ -15,14 +13,16 @@ DHCP Configuration
 */
 
 int main() {
+    srand(time(NULL));
+    hashmap table = init_hash_table();
 
     /*------------------- SOCKET SETUP --------------------*/
-    struct sockaddr_in address;
-    char buffer[BUFF_LENGTH];
+    struct sockaddr_storage address;
+    unsigned char buffer[BUFF_LENGTH];
     int socket_fd;
     int opt = 1;
 
-    if (socket_fd = socket(AF_INET, SOCK_DGRAM, 0) < 0) {
+    if ((socket_fd = socket(AF_INET6, SOCK_DGRAM, 0)) < 0) {
         perror("Failed to create socket");
         exit(EXIT_FAILURE);
     }
@@ -35,11 +35,12 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    address.sin_family = AF_INET;
-    address.sin_port(UDP_PORT);
-    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin6_family = AF_INET6;
+    address.sin6_port = htons(UDP_PORT);
+    address.sin6_addr.s_addr = INADDR_ANY;
 
-    if (bind(socket_fd, &sockaddr_in, sizeof(sockaddr_in)) < 0) {
+    socklen_t addr_len = sizeof(address);
+    if (bind(socket_fd, (struct sockaddr *)&address, sizeof(addr_len)) < 0) {
         perror("Bind Failed");
         exit(EXIT_FAILURE);
     }
@@ -47,27 +48,31 @@ int main() {
     /*----------------- RECV / SND ------------------*/
 
     while (1) {
-        if (recvfrom(socket_fd, (char *)buffer, BUFF_LENGTH, MSG_WAITALL,
-                (struct sockaddr *) &address, sizeof(address)) > 0) {
+        ssize_t bytes_received = recvfrom(socket_fd, buffer, BUFF_LENGTH, MSG_WAITALL,
+                (struct sockaddr *) &address, sizeof(address));
+
+        if (bytes_received< 0) {
                     perror("Recvfrom Error:");
         }
-
-        // Check if request if from DNS provider out local device
-        if (local_device_request(buffer)) {
-            // From local device
-            // Code for checking if request is on a blocked list
-            if (check_blocklist(buffer)) {
-                // Use Hash map and bloom filter
-                // if on blacklist, return 0.0.0.0.0
+        
+        DNSQuery *dns_header = (DNSQuery *)buffer;
+        if ((dns_header->flags & 0x8000) == 0) {
+            // value is a request as flag is not set
+            char *domain = extract_domain_from_query(buffer);
+            if (table_lookup(table, domain) == SUCCESS) {
+                modify_blocked_domain_buffer(buffer, bytes_received);
+                ssize_t bytes_sent = sendto(socket_fd, buffer, bytes_received + BYTES_ADDED, 0,
+                     (struct sockaddr *) &address, sizeof(addr_len))
+                
             } else {
-                // Pass data onward
+                // Generate a port between 49152 and 65535
+                int random_port = 49152 + (rand() % (65535 - 49152 + 1));
+                // forward response to dns provider
+                // Wait for response on high port
+                // send response to laptop
             }
-        } else {
-            // Code for sending data back to local devices
-
         }
     }
-
 
     return SUCCESS;
 }

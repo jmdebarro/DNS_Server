@@ -1,6 +1,6 @@
 run:
-	gcc -Wextra -Wall main.c -o sinkhole
+	gcc -Wextra -Wall test.c -o sinkhole hashmap.c
 	./sinkhole
 
 clean:
-	rm ./sinkhole
+	rm ./
