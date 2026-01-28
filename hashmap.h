@@ -7,10 +7,10 @@ typedef struct hashnode {
 
 typedef hashnode ** hashmap;
 
-enum HASH_TABLE_SEARCH {
+typedef enum {
     SUCCESS,
     FAILURE
-};
+} HASH_TABLE_SEARCH;
 
 unsigned long hash_function(unsigned char *str);
 hashmap init_hash_table();

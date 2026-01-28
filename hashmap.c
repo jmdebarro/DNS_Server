@@ -30,7 +30,7 @@ hashmap init_hash_table() {
     }
 
     char *line = NULL;
-    int len = 0;
+    size_t len = 0;
     FILE *fptr = fopen("blocklist.txt", "r");
 
     while(getline(&line, &len, fptr) != -1) {

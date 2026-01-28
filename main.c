@@ -1,6 +1,3 @@
-#include <stdio.h>
-#include <sys/socket.h>
-#include <time.h>
 #include "hashmap.h"
 #include "utils.h"
 
@@ -18,7 +15,7 @@ int main() {
 
     /*------------------- SOCKET SETUP --------------------*/
     struct sockaddr_in6 server_address;
-    struct sockaddr_storage server_address;
+    struct sockaddr_storage client_address;
     unsigned char buffer[BUFF_LENGTH];
     int socket_fd;
     int opt = 1;
@@ -36,10 +33,10 @@ int main() {
 
     server_address.sin6_family = AF_INET6;
     server_address.sin6_port = htons(UDP_PORT);
-    server_address.sin6_addr.s_addr = in6addre_any;
+    server_address.sin6_addr = in6addr_any;
 
-    socklen_t addr_len = sizeof(address);
-    if (bind(socket_fd, (struct sockaddr *)&address, sizeof(addr_len)) < 0) {
+    socklen_t addr_len = sizeof(server_address);
+    if (bind(socket_fd, (struct sockaddr *)&server_address, sizeof(addr_len)) < 0) {
         perror("Bind Failed");
         exit(EXIT_FAILURE);
     }
@@ -47,15 +44,15 @@ int main() {
     /*----------------- RECV / SND ------------------*/
 
     while (1) {
-        socklen_t addr_len = sizeof(client_addr);
+        socklen_t addr_len = sizeof(client_address);
         ssize_t bytes_received = recvfrom(socket_fd, buffer, BUFF_LENGTH, MSG_WAITALL,
-                (struct sockaddr *) &address, &addr_len);
+                (struct sockaddr *)&client_address, &addr_len);
 
         if (bytes_received< 0) {
                     perror("Recvfrom Error:");
         }
         
-        DNSQuery *dns_header = (DNSQuery *)buffer;
+        DNSHeader *dns_header = (DNSHeader *)buffer;
         if ((dns_header->flags & 0x8000) == 0) {
             // value is a request as flag is not set
             char *domain = extract_domain_from_query(buffer);
