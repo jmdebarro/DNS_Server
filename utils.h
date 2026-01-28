@@ -6,6 +6,8 @@
 #define GOOGLE_DNS "8.8.8.8"
 #define BUFF_LENGTH 1024
 #define BYTES_ADDED 16
+#define IPv6_BYTE_SIZE 28
+#define IPv4_BYTE_SIZE 16
 
 typedef struct DNSHeader {
     uint16_t id;
