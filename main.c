@@ -12,6 +12,7 @@ DHCP Configuration
 int main() {
     srand(time(NULL));
     hashmap table = init_hash_table();
+    print_table(table);
 
     /*------------------- SOCKET SETUP --------------------*/
     struct sockaddr_in6 server_address;
@@ -36,7 +37,7 @@ int main() {
     server_address.sin6_addr = in6addr_any;
 
     socklen_t addr_len = sizeof(server_address);
-    if (bind(socket_fd, (struct sockaddr *)&server_address, sizeof(addr_len)) < 0) {
+    if (bind(socket_fd, (struct sockaddr *) &server_address, addr_len) < 0) {
         perror("Bind Failed");
         exit(EXIT_FAILURE);
     }
@@ -44,6 +45,8 @@ int main() {
     /*----------------- RECV / SND ------------------*/
 
     while (1) {
+        printf("Waiting for query. . .\n");
+        memset(buffer, 0, BUFF_LENGTH);
         socklen_t addr_len = sizeof(client_address);
         ssize_t bytes_received = recvfrom(socket_fd, buffer, BUFF_LENGTH, MSG_WAITALL,
                 (struct sockaddr *)&client_address, &addr_len);
@@ -56,9 +59,11 @@ int main() {
         if ((dns_header->flags & 0x8000) == 0) {
             // value is a request as flag is not set
             char *domain = extract_domain_from_query(buffer);
+            printf("Received query with domain: %s\n", domain);
             if (table_lookup(table, domain) == SUCCESS) {
+                printf("Domain - %s - on blocked list\n");
                 ssize_t bytes_to_send = modify_blocked_domain_buffer(buffer, bytes_received);
-                ssize_t bytes_sent = sendto(socket_fd, buffer, bytes_to_send, 0,
+                ssize_t bytes_sent = sendto(socket_fd, (void *)buffer, bytes_to_send, 0,
                      (struct sockaddr *) &client_address, sizeof(addr_len));
                 if (bytes_sent < 0) {
                     perror("Error Sending Bytes");

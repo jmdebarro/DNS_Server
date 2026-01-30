@@ -23,22 +23,28 @@ typedef struct DNSHeader {
 
 char *extract_domain_from_query(unsigned char buffer[BUFF_LENGTH]) {
     // Formats 0x03 w w w 0x06 g o o g l e .... into www.google.com and returns pointer
-    unsigned int index = DOMAIN_BEGIN;
-    int first = TRUE;
-    while (buffer[index] != 0) {
-        unsigned int string_len = buffer[index];
-        if (first == FALSE) {
-            buffer[index] = '.';
-        }
-        index += string_len;
-        first = TRUE;
-    }
+    static char domain_out[256]; 
+    unsigned int src = DOMAIN_BEGIN;
+    unsigned int dst = 0;
 
-    return (char *)(buffer + DOMAIN_BEGIN + 1);
+    while (buffer[src] != 0 && src < BUFF_LENGTH && dst < 255) {
+        unsigned int label_len = buffer[src++]; 
+        
+        for (unsigned int i = 0; i < label_len && src < BUFF_LENGTH; i++) {
+            domain_out[dst++] = buffer[src++];
+        }
+
+        // If the next byte isn't the end of the domain, add a dot
+        if (buffer[src] != 0) {
+            domain_out[dst++] = '.';
+        }
+    }
+    domain_out[dst] = '\0';
+    return domain_out;
 }
 
 uint16_t get_dns_question_type(unsigned char *buffer, ssize_t bytes_received) {
-    int pos = 12; // Skip header
+    int pos = DOMAIN_BEGIN; // Skip header
     // Walk through the labels
     while (buffer[pos] != 0 && pos < bytes_received) {
         pos += buffer[pos] + 1; // Walks through domain 06 g o o g l e 03 c o m 00

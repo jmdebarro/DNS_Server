@@ -61,7 +61,7 @@ HASH_TABLE_SEARCH table_lookup(hashmap table, char *domain) {
         return FAILURE;
     } else {
         while (target_node != NULL) {
-            if (strcmp(domain, target_node->domain) == 0){
+            if (strcasecmp(domain, target_node->domain) == 0){
                 return SUCCESS;
             }
             target_node = target_node->next;
