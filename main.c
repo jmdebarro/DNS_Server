@@ -61,10 +61,10 @@ int main() {
             char *domain = extract_domain_from_query(buffer);
             printf("Received query with domain: %s\n", domain);
             if (table_lookup(table, domain) == SUCCESS) {
-                printf("Domain - %s - on blocked list\n");
+                printf("Domain on blocked list\n");
                 ssize_t bytes_to_send = modify_blocked_domain_buffer(buffer, bytes_received);
                 ssize_t bytes_sent = sendto(socket_fd, (void *)buffer, bytes_to_send, 0,
-                     (struct sockaddr *) &client_address, sizeof(addr_len));
+                     (struct sockaddr *) &client_address, addr_len);
                 if (bytes_sent < 0) {
                     perror("Error Sending Bytes");
                     exit(EXIT_FAILURE);

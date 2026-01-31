@@ -51,8 +51,8 @@ uint16_t get_dns_question_type(unsigned char *buffer, ssize_t bytes_received) {
     }
     pos++; // Skip the null terminator (0x00)
     
-    // The next 2 bytes are the Type (e.g., 0x0001 for A, 0x001C for AAAA)
-    return (buffer[pos] << 8) | buffer[pos + 1];
+    // The next 2 bytes are the Type (0x0001 for A - 0x001C for AAAA)
+    return (uint16_t)buffer[pos + 1];
 }
 
 ssize_t modify_blocked_domain_buffer(unsigned char buffer[BUFF_LENGTH], ssize_t bytes_received) {
@@ -61,15 +61,26 @@ ssize_t modify_blocked_domain_buffer(unsigned char buffer[BUFF_LENGTH], ssize_t 
     //  http://www.tcpipguide.com/free/t_DNSNameServerDataStorageResourceRecordsandClasses-3.htm#Table_166
     uint16_t qtype = get_dns_question_type(buffer, bytes_received);
 
-    // Sets response flag and Authority
-    buffer[2] =( buffer[2] & 0x81) | 0x81;
+    // Sets Response Flags
+    buffer[2] = (buffer[2] & 0x84) | 0x84;
     buffer[3] = (buffer[3] & 0x80) | 0x80;
-    buffer[7] = (buffer[7] & 0x01) | 0x01;
+    // Questions being asked, 1
+    buffer[5] = (buffer[5] & 0x01) | 0x01; 
+    buffer[7] = (buffer[5] & 0x01) | 0x01; 
+    // Clears additional content field
+    memset(&buffer[8], 0, 4);
 
-    unsigned char *ptr = &buffer[bytes_received];
+    int pos = DOMAIN_BEGIN; // Skip header
+    while (buffer[pos] != 0 && pos < bytes_received) {
+        pos += buffer[pos] + 1; // Walks through domain, ex. 06 g o o g l e 03 c o m 00
+    }
+    pos += 1 + 4; // Skip the null terminator (0x00) and then Type and Class of response, 2 bytes each
+    unsigned char *ptr = &buffer[pos];
+
     ptr[0] = 0xC0;  // Identifies this as a pointer, not a string
     ptr[1] = 0x0C;  // Address 12, where the name is stored from client DNS request
     ptr[2] = 0x00;  // Identifies type of repsosne, which is an address
+    // ptr[3] specific ot ipv, below
     ptr[4] = 0x00;  // Identifies class of resource, typically always 1 for Internet ("IN")
     ptr[5] = 0x01;
     ptr[6] = 0x00;  // specifies Time To Live (TTL)
@@ -80,11 +91,11 @@ ssize_t modify_blocked_domain_buffer(unsigned char buffer[BUFF_LENGTH], ssize_t 
         ptr[3] = 0x1C; // Type AAAA
         ptr[10] = 0x00; ptr[11] = 0x10; // Data Length 16 bytes
         memset(&ptr[12], 0, 16);        // IPv6 "::" address
-        return bytes_received + 28;     // Answer is 28 bytes total
+        return bytes_received + pos + 28 - DOMAIN_BEGIN;     // Answer is 28 bytes total
     } else { // Default to A (IPv4)
         ptr[3] = 0x01; // Type A
         ptr[10] = 0x00; ptr[11] = 0x04; // Data Length 4 bytes
         memset(&ptr[12], 0, 4);         // IPv4 "0.0.0.0" address
-        return bytes_received + 16;
+        return bytes_received + pos + 16 - DOMAIN_BEGIN;
     }
 }
